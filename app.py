@@ -3,8 +3,6 @@ import numpy as np
 import streamlit as st
 from PIL import Image, ImageFilter
 from sklearn.cluster import KMeans
-from google import genai
-from google.genai import types
 from skimage.color import rgb2lab, lab2rgb, rgb2hsv, hsv2rgb
 
 st.set_page_config(page_title="VTuber Palette Generator", page_icon="🎨", layout="wide")
@@ -105,8 +103,12 @@ def assign_roles(centers, props):
     }
 
 
+def hex_to_rgb(h):
+    return [int(h[i:i + 2], 16) for i in (1, 3, 5)]
+
+
 def swatch(hexv, label, w="100%"):
-    rgb = [int(hexv[i:i + 2], 16) for i in (1, 3, 5)]
+    rgb = hex_to_rgb(hexv)
     fg = "#000" if contrast(rgb, [0, 0, 0]) > contrast(rgb, [255] * 3) else "#fff"
     return (f"<div style='background:{hexv};color:{fg};padding:18px 8px;border-radius:10px;"
             f"text-align:center;width:{w};font-family:monospace'><b>{label}</b><br>{hexv}</div>")
@@ -122,10 +124,6 @@ def theme_card(name, bg, text, primary, secondary, accent):
       <span style='background:{secondary};color:{text};padding:6px 14px;border-radius:8px;margin-right:8px'>Secondary</span>
       <span style='border:2px solid {accent};color:{accent};padding:4px 12px;border-radius:8px'>Accent</span>
     </div>"""
-
-
-def hex_to_rgb(h):
-    return [int(h[i:i + 2], 16) for i in (1, 3, 5)]
 
 
 # ---------------- Main ----------------
@@ -184,11 +182,6 @@ if file:
     css = (":root {\n  --primary: %s;\n  --secondary: %s;\n  --accent: %s;\n  --bg: %s;\n  --text: %s;\n}\n"
            "@media (prefers-color-scheme: dark) {\n  :root { --bg: %s; --text: %s; }\n}" %
            (args[0], args[1], args[2], hex_(light_bg), hex_(light_tx), hex_(dark_bg), hex_(dark_tx)))
-    st.session_state["ctx"] = (
-        f"Hasil analisis gambar: K={K}, ruang warna={space}, median filter={median_size}. "
-        f"Palet peran: {json.dumps(theme)}. "
-        f"Proporsi kluster (urut terbesar): {[f'{p*100:.1f}%' for p in sorted(props, reverse=True)]}."
-    )
     st.subheader("Export")
     st.code(css, language="css")
     d1, d2 = st.columns(2)
@@ -196,52 +189,3 @@ if file:
     d2.download_button("Download theme.css", css, "theme.css", "text/css")
 else:
     st.info("Upload gambar avatar untuk mulai.")
-
-
-# ---------------- Chatbot Gemma ----------------
-st.divider()
-st.subheader("💬 Tanya Chatbot (Gemma)")
-MODELS = ["gemma-4-26b-a4b-it", "gemma-4-31b-it", "gemma-3-27b-it"]
-model_name = st.sidebar.selectbox("Model Gemma", MODELS)
-api_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
-api_key = api_key or st.sidebar.text_input("Gemini API Key", type="password", help="Ambil di aistudio.google.com")
-
-SYSTEM = (
-    "Kamu asisten untuk aplikasi Color Palette Generator berbasis K-Means (LAB/HSV, median filter). "
-    "Jawab singkat dalam bahasa Indonesia: jelaskan hasil palet, saran tema stream overlay/UI, "
-    "kontras warna, dan konsep K-Means/pengolahan citra."
-)
-
-if "chat" not in st.session_state:
-    st.session_state.chat = []
-for m in st.session_state.chat:
-    with st.chat_message("user" if m["role"] == "user" else "assistant"):
-        st.markdown(m["text"])
-
-if q := st.chat_input("Tanya soal palet, K-Means, atau tema..."):
-    if not api_key:
-        st.warning("Isi Gemini API Key di sidebar (atau st.secrets) dulu.")
-    else:
-        st.session_state.chat.append({"role": "user", "text": q})
-        with st.chat_message("user"):
-            st.markdown(q)
-        # Instruksi + konteks palet disisipkan di pesan user terakhir (kompatibel semua varian Gemma)
-        ctx = st.session_state.get("ctx", "Belum ada gambar yang dianalisis.")
-        contents = [
-            types.Content(role=m["role"], parts=[types.Part(text=m["text"])])
-            for m in st.session_state.chat[:-1]
-        ]
-        contents.append(types.Content(role="user", parts=[types.Part(text=f"{SYSTEM}\n\nKonteks: {ctx}\n\nPertanyaan: {q}")]))
-        try:
-            client = genai.Client(api_key=api_key)
-
-            def stream():
-                for chunk in client.models.generate_content_stream(model=model_name, contents=contents):
-                    if chunk.text:
-                        yield chunk.text
-
-            with st.chat_message("assistant"):
-                answer = st.write_stream(stream())
-            st.session_state.chat.append({"role": "model", "text": answer})
-        except Exception as e:
-            st.error(f"Gagal memanggil API: {e}")
