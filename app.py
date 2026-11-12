@@ -5,9 +5,9 @@ from PIL import Image, ImageFilter
 from sklearn.cluster import KMeans
 from skimage.color import rgb2lab, lab2rgb, rgb2hsv, hsv2rgb
 
-st.set_page_config(page_title="VTuber Palette Generator", page_icon="🎨", layout="wide")
+st.set_page_config(page_title="Logo Palette Generator", page_icon="🎨", layout="wide")
 st.title("🎨 Auto-Dominant Color Palette & Theme Generator")
-st.caption("K-Means Clustering pada piksel avatar VTuber (PNG) → tema stream overlay / UI light-dark")
+st.caption("K-Means Clustering pada piksel logo (PNG) → palet brand & tema UI light-dark")
 
 # ---------------- Sidebar ----------------
 st.sidebar.header("Pengaturan")
@@ -119,7 +119,7 @@ def theme_card(name, bg, text, primary, secondary, accent):
     return f"""
     <div style='background:{bg};color:{text};padding:20px;border-radius:14px;border:1px solid {secondary}'>
       <h3 style='margin:0 0 6px 0;color:{text}'>{name} Mode</h3>
-      <p style='margin:0 0 12px 0'>Preview overlay stream / UI card.</p>
+      <p style='margin:0 0 12px 0'>Preview kartu UI / brand.</p>
       <span style='background:{primary};color:{btn_fg};padding:6px 14px;border-radius:8px;margin-right:8px'>Primary</span>
       <span style='background:{secondary};color:{text};padding:6px 14px;border-radius:8px;margin-right:8px'>Secondary</span>
       <span style='border:2px solid {accent};color:{accent};padding:4px 12px;border-radius:8px'>Accent</span>
@@ -127,7 +127,7 @@ def theme_card(name, bg, text, primary, secondary, accent):
 
 
 # ---------------- Main ----------------
-file = st.file_uploader("Upload avatar VTuber (PNG, disarankan transparan)", type=["png", "webp", "jpg", "jpeg"])
+file = st.file_uploader("Upload logo (PNG, disarankan background transparan)", type=["png", "webp", "jpg", "jpeg"])
 
 if file:
     original = Image.open(file)
@@ -188,4 +188,4 @@ if file:
     d1.download_button("Download theme.json", json.dumps(theme, indent=2), "theme.json", "application/json")
     d2.download_button("Download theme.css", css, "theme.css", "text/css")
 else:
-    st.info("Upload gambar avatar untuk mulai.")
+    st.info("Upload gambar logo untuk mulai.")
